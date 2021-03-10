@@ -1,0 +1,59 @@
+#Find and Export Manager of All Office 365 Users using Powershell
+https://morgantechspace.com/2019/09/find-and-export-manager-of-all-o365-users-powershell.html
+
+
+#Before proceeding, install Azure AD PowerShell V2 module and run the below command to connect Azure AD Powershell:
+
+Connect-AzureAD
+
+#Run the following command to retrieve manager information for a single user account.
+
+Get-AzureADUserManager -ObjectId "username@domain.com"
+
+#Get Manager of All Azure AD Users
+#To get the manager detail of all users, first, we have to get all Office 365 users using the Get-AzureADUser command and pipe the result to Get-AzureADUserManager command.
+
+#The below commands fetch all users and their manager details (ex: name and email address) and store the detail in the $Result array object.
+
+$Result = @()
+$AllUsers= Get-AzureADUser -All $true | Select-Object -Property Displayname,UserPrincipalName
+$TotalUsers = $AllUsers.Count
+$i = 1 
+$AllUsers | ForEach-Object {
+$User = $_
+Write-Progress -Activity "Processing $($_.Displayname)" -Status "$i out of $TotalUsers completed"
+$managerObj = Get-AzureADUserManager -ObjectId $User.UserPrincipalName
+$Result += New-Object PSObject -property @{ 
+UserName = $User.DisplayName
+UserPrincipalName = $User.UserPrincipalName
+ManagerName = if ($managerObj -ne $null) { $managerObj.DisplayName } else { $null }
+ManagerMail = if ($managerObj -ne $null) { $managerObj.Mail } else { $null }
+}
+$i++
+}
+
+#List All Office365 Users with their Manager Info
+$Result | Select UserName, ManagerName, ManagerMail
+
+#List All Office 365 Users without Manager:
+$Result | Where-Object { $_.ManagerName -eq $null } | Select UserName, UserPrincipalName
+
+#Export the Result to CSV file
+$Result | Select UserName, UserPrincipalName, ManagerName,ManagerMail  |
+Export-CSV "C:\O365UsersManagerInfo.CSV" -NoTypeInformation -Encoding UTF8
+
+#Find manager info for multiple users from CSV file
+#In some scenarios, we may need to find manager name for particular set of users. In this case, we can store the user ids in CSV file and import csv in powershell using Import-Csv cmdlet. Consider the CSV file “O365Users.csv” which contains username (or upn) of users with the column header UserPrincipalName.
+
+$Result = @()
+Import-Csv 'C:\O365Users.csv' | ForEach-Object {
+$managerObj = Get-AzureADUserManager -ObjectId $_."UserPrincipalName"
+$Result += New-Object PSObject -property @{ 
+UserName = $_."UserPrincipalName"
+ManagerName = if ($managerObj -ne $null) { $managerObj.DisplayName } else { $null }
+ManagerMail = if ($managerObj -ne $null) { $managerObj.Mail } else { $null }
+}
+}
+$Result | Select UserName, ManagerName,ManagerMail  |
+Export-CSV "C:\O365UsersManagerInfo.CSV" -NoTypeInformation -Encoding UTF8
+
