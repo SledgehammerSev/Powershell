@@ -1,0 +1,19 @@
+#Get created date for Microsoft365-Azure AD Users
+https://michelcarlo.com/2021/01/07/powershell-script-get-created-date-for-microsoft-365-azure-ad-users/
+
+
+
+Connect-AzureAD 
+
+$usrs = Get-AzureADUser -All:$true 
+
+$usrs | ForEach-Object{
+
+    Write-Host "Getting created date for" $_.UserPrincipalName
+
+    $_ | Add-Member -MemberType NoteProperty -Name "CreatedDateTime" `
+    -Value (Get-AzureADUserExtension -ObjectId $_.ObjectId).Get_Item("createdDateTime")
+
+} 
+
+$usrs | Export-CSV "C:\temp\userslist.csv" 
